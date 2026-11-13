@@ -1,0 +1,17 @@
+#!/bin/bash
+set -euo pipefail
+uid=$(stat -f %u /dev/console)
+user=$(stat -f %Su /dev/console)
+if [[ "$uid" -ge 500 ]]; then
+ user_home=$(/usr/bin/dscl . -read "/Users/$user" NFSHomeDirectory | /usr/bin/sed 's/^NFSHomeDirectory: //')
+ legacy="$user_home/Library/LaunchAgents/org.local.audio2dj.bridge.plist"
+ if [[ -f "$legacy" ]]; then
+  mv "$legacy" "$legacy.pre-package-$(date +%Y%m%d-%H%M%S).disabled"
+ fi
+ /bin/launchctl bootstrap "gui/$uid" /Library/LaunchAgents/org.local.audio2dj.bridge.plist || {
+  echo 'LaunchAgent will start at next login.' >&2
+ }
+fi
+# Installation interrupts all CoreAudio clients. Reopen audio applications afterwards.
+/usr/bin/killall coreaudiod 2>/dev/null || true
+exit 0
