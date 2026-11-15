@@ -22,6 +22,16 @@ struct slot { struct libusb_transfer *input, *output; unsigned char in[PACKETS*S
 static struct slot slots[COUNT];
 static volatile sig_atomic_t running = 1;
 static int failures;
+static int cleanup_started;
+static void cleanup_timeout(int signal_number) {
+    (void)signal_number;
+    static const char message[]="USB cleanup exceeded 5 seconds; exiting for supervisor restart.\n";
+    (void)write(STDERR_FILENO,message,sizeof(message)-1);
+    _exit(1);
+}
+static void begin_cleanup(void) {
+    if(!cleanup_started) { cleanup_started=1; alarm(5); }
+}
 #define RING 16384
 static float ring[RING][4];
 static unsigned long written, consumed, underruns, overruns;
@@ -157,6 +167,7 @@ static void input_done(struct libusb_transfer *transfer) {
 int main(void) {
     int qos_result=pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE,0);
     fprintf(stderr,"Audio thread QoS: %d\n",qos_result);
+    signal(SIGALRM,cleanup_timeout);
     signal(SIGINT,stop_requested);
     signal(SIGTERM,stop_requested);
     udp=socket(AF_INET,SOCK_DGRAM,0);
@@ -229,6 +240,7 @@ int main(void) {
         if(result) break;
     }
     running=0;
+    begin_cleanup();
     for(int i=0;i<COUNT;i++) {
         if(slots[i].reading) libusb_cancel_transfer(slots[i].input);
         if(slots[i].writing) libusb_cancel_transfer(slots[i].output);
@@ -246,10 +258,12 @@ int main(void) {
     printf("Underruns %lu, overruns %lu, queued frames %lu, received PCM frames %lu\n",underruns,overruns,written-consumed,written);
     if(!received || !sent || failures || dropped || device_errors) result=LIBUSB_ERROR_IO;
 finish:
+    begin_cleanup();
     if(result) fprintf(stderr,"Result: %s\n",libusb_error_name(result));
     if(claimed) { libusb_set_interface_alt_setting(device,0,0); libusb_release_interface(device,0); }
     if(device) libusb_close(device);
     libusb_exit(context);
     close(udp);
+    alarm(0);
     return result ? 1 : 0;
 }

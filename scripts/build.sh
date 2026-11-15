@@ -8,7 +8,10 @@ mkdir -p build dist
 expected=5977fc950f8d1395ccea9bd48c06b3f808fd3c2c961b44b0c2e6e29fc3a70a85
 actual=$(shasum -a 256 vendor/libusb-1.0.29.tar.bz2 | awk '{print $1}')
 [[ "$actual" == "$expected" ]] || { echo 'libusb checksum mismatch' >&2; exit 1; }
-if [[ ! -d build/libusb-1.0.29 ]]; then tar -xjf vendor/libusb-1.0.29.tar.bz2 -C build; fi
+# Fresh extraction prevents a cached unpatched library from entering a release.
+rm -rf build/libusb-1.0.29
+tar -xjf vendor/libusb-1.0.29.tar.bz2 -C build
+(cd build/libusb-1.0.29 && patch --batch --fuzz=0 -p1 < ../../vendor/patches/libusb-darwin-shutdown.patch)
 (cd build/libusb-1.0.29 && ./configure --disable-shared --enable-static && make -j2)
 clang -Wall -Wextra -O2 src/bridge.c -Ibuild/libusb-1.0.29/libusb \
  build/libusb-1.0.29/libusb/.libs/libusb-1.0.a \

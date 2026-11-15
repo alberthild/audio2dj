@@ -4,7 +4,7 @@ A community userspace driver for the **original Native Instruments Audio 2 DJ**
 (USB `17cc:041c`), with four output channels at 48 kHz. This is not the newer
 Traktor Audio 2. No NI kernel extension, SIP change or legacy driver is needed.
 
-**Status: v0.1.0 experimental, Intel only.** Tested on one Intel MacBook Pro 13-inch
+**Status: v0.1.1 experimental, Intel only.** Tested on one Intel MacBook Pro 13-inch
 2020 with macOS 26.7.1 and djay Pro 5.6.9. Apple Silicon and other macOS versions
 are untested. This is not an official Native Instruments product.
 
@@ -30,6 +30,34 @@ A user LaunchAgent starts the bridge at login and waits for playback. Only one
 logged-in user may control the physical interface at a time. Do not run a second
 bridge manually. A legacy per-user agent with the same label is disabled during
 package installation; its plist is preserved with a `.disabled` suffix.
+
+## Recovery fix in 0.1.1
+
+A captured silent bridge was stuck in libusb 1.0.29 shutdown: the main thread held
+`darwin_cached_devices_mutex` while waiting for a hotplug thread that needed the
+same mutex. 0.1.1 backports the [upstream fix](https://github.com/libusb/libusb/commit/94a5224ea1a7515c38c618694e8794e058c16412).
+The build always extracts clean sources and applies the patch before compiling.
+A separate five-second cleanup deadline terminates the process if cancellation,
+release or shutdown still stalls, allowing launchd to restart it. No gain, routing,
+sample conversion, USB queue length or clock-feedback behavior was changed.
+
+This fixes the observed failure to recover, **not all causes of USB disconnection**.
+A recovery still interrupts audio. Physical cable/power issues and other errors
+remain possible. The deadline begins at cleanup, not during a blocked USB startup
+call or arbitrary streaming stall; it is not a general-purpose watchdog.
+
+Regression checks (after building):
+
+```sh
+python3 tests/test_recovery.py
+./scripts/package.sh
+python3 tests/verify_package.py
+```
+
+The regression coordinates the exact lock cycle using the actual old/patched
+shutdown function: the old code must time out and the patched code must complete.
+It also checks multiple contexts, the bridge cleanup deadline, and repeated real
+libusb init/enumerate/exit without opening or resetting the audio device.
 
 ## What works and what does not yet
 
@@ -63,8 +91,8 @@ cd audio2dj
 ./scripts/package.sh
 ```
 
-Output: `dist/Audio2DJ-Experimental-0.1.0-intel.pkg`. The repository includes the
-pinned libASPL source and the original libusb source archive, so no Homebrew or
+Output: `dist/Audio2DJ-Experimental-0.1.1-intel.pkg`. The repository includes the
+pinned libASPL source, the original libusb source archive and a documented shutdown patch, so no Homebrew or
 network dependency is needed after cloning. Build flags match the prototype;
 only the build host's architecture is supported. See `THIRD_PARTY_NOTICES.md`.
 

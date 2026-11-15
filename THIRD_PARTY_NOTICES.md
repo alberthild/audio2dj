@@ -12,6 +12,10 @@
   https://github.com/libusb/libusb/releases/tag/v1.0.29, LGPL-2.1-or-later;
   see the archive's `COPYING` and per-file notices.
   SHA-256: `5977fc950f8d1395ccea9bd48c06b3f808fd3c2c961b44b0c2e6e29fc3a70a85`.
+- `vendor/patches/libusb-darwin-shutdown.patch`: backport of upstream commit
+  `94a5224ea1a7515c38c618694e8794e058c16412` by Sylvain Fasel, retaining libusb's
+  LGPL-2.1-or-later license. Adapted to 1.0.29 pthread mutex/condition types.
+  https://github.com/libusb/libusb/commit/94a5224ea1a7515c38c618694e8794e058c16412
 - Root `LICENSE` supplies GPL version 2; project bridge/scripts permit version 2
   or any later version. Individual permissively licensed components retain their
   licenses. All required source and relinking/build inputs are distributed in this

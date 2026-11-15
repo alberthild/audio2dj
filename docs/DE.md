@@ -16,3 +16,9 @@ umfasst etwa 128 ms und erzeugt deutlich spürbare Verzögerung. Keine Freigabe 
 zuverlässiger Live-Treiber. Ein vollständiger Probelauf ist erforderlich.
 
 Build, Deinstallation, Lizenzen und alle bekannten Einschränkungen: siehe README.md.
+
+Version 0.1.1 behebt eine nachgewiesene gegenseitige Sperre beim Beenden von
+libusb nach einem USB-Ausfall. Zusätzlich begrenzt die Bridge ihre Aufräumphase
+auf fünf Sekunden, damit launchd sie bei einem erneuten Hänger neu starten kann.
+Das verhindert nicht jede USB-Unterbrechung und ist kein allgemeiner Watchdog
+für die gesamte Wiedergabe. Pegel, Kanalzuordnung und Taktabgleich bleiben gleich.
